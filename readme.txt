@@ -1,7 +1,7 @@
-Chrome Extension - DM Retailers v2.0
+Chrome Extension - Retailers v2.0
 
 Description
-The "DM Retailers" Chrome extension allows you to create and manage a list of DM Retailers. You can import a website list from a CSV file and search for websites by name.
+The "Retailers" Chrome extension allows you to create and manage a list of Retailers. You can import a website list from a CSV file and search for websites by name.
 
 Instructions
 
@@ -19,15 +19,10 @@ Open the extension by clicking on its icon in the upper right corner of the brow
 Click the "Import CSV File" button.
 Choose the CSV file with the website list in the file dialog.
 After importing, the websites will be displayed in the extension interface.
-Please note that there will be duplicated websites after import - this will be updated in the future versions.
-
-Syntax of CSV file:
-stack,name,full_url
-for example: DM1,Robert Dyas,https://DM1.metapack.com/dm/ActionServlet?action=impersonate_retailer&retailerId=167
 
 You can also remove the list from the memory of the extensions - just click a "Delete Imported CSV file".
 
-Once you see there is a new DM retailer and you want to add it to the extension, you just create a CSV file with this retailer only (or in the further version of the extension - you can just input a new retailer to the existing file), and then import to the extension.
+Once you see there is a new retailer and you want to add it to the extension, you just create a CSV file with this retailer only (or in the further version of the extension - you can just input a new retailer to the existing file), and then import to the extension.
 
 3. Searching for Websites
 To search for a website, enter the name in the search bar at the top of the extension interface.
@@ -38,4 +33,3 @@ The list of websites will be filtered in real-time as you type, showing only the
 
 ----------
 Last update: 13.12.2024
-For AUCTANE internal use

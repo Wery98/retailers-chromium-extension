@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "DM Retailers",
+  "version": "1.0",
+  "description": "DM Retailers",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "input"
+  ],
+  "host_permissions": [
+    "https://*/*"
+  ]
+}

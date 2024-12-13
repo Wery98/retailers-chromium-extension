@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-  loadSiteList();
-  loadFavorites();
+  var searchTerm = document.getElementById('searchInput').value;
+  loadSiteList(searchTerm);
+  loadFavorites(searchTerm);
 
   // Focus the search input field automatically
   document.getElementById('searchInput').focus();
@@ -9,15 +10,16 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('deleteButton').addEventListener('click', function() {
     chrome.storage.local.remove(['siteList', 'favorites'], function() {
       console.log('Deleted imported site list and favorites.');
-      loadSiteList();
-      loadFavorites();
+      loadSiteList('');
+      loadFavorites('');
     });
   });
 
   // Search Input Event
   document.getElementById('searchInput').addEventListener('input', function() {
-    filterSiteList(this.value);
-    filterFavorites(this.value);
+    var currentTerm = this.value;
+    filterSiteList(currentTerm);
+    filterFavorites(currentTerm);
   });
 
   // Import Button Event
@@ -36,7 +38,9 @@ document.addEventListener('DOMContentLoaded', function() {
         mergeSiteList(siteList, function (mergedList) {
           chrome.storage.local.set({ 'siteList': JSON.stringify(mergedList) }, function () {
             console.log('Imported site list successfully.');
-            loadSiteList();
+            var searchTerm = document.getElementById('searchInput').value;
+            loadSiteList(searchTerm);
+            loadFavorites(searchTerm);
           });
         });
       };
@@ -64,7 +68,9 @@ async function importCSVFile() {
     mergeSiteList(siteList, function (mergedList) {
       chrome.storage.local.set({ 'siteList': JSON.stringify(mergedList) }, function () {
         console.log('Imported site list successfully.');
-        loadSiteList();
+        var searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+        loadSiteList(searchTerm);
+        loadFavorites(searchTerm);
       });
     });
   } catch (error) {
@@ -111,7 +117,7 @@ function mergeSiteList(newSites, callback) {
 }
 
 // Load Site List (Excluding Favorites)
-function loadSiteList() {
+function loadSiteList(searchTerm = '') {
   chrome.storage.local.get(['siteList', 'favorites'], function(data) {
     var siteList = data.siteList ? JSON.parse(data.siteList) : [];
     var favorites = data.favorites ? data.favorites : [];
@@ -162,12 +168,17 @@ function loadSiteList() {
           addToFavorites({ 'name': this.dataset.name, 'url': this.dataset.url, 'stack': this.dataset.stack });
         }
       });
+
+      // Apply Filter if Search Term Exists
+      if (searchTerm && !site.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        listItem.style.display = 'none';
+      }
     });
   });
 }
 
 // Load Favorites
-function loadFavorites() {
+function loadFavorites(searchTerm = '') {
   chrome.storage.local.get('favorites', function(data) {
     var favorites = data.favorites ? data.favorites : [];
 
@@ -215,6 +226,11 @@ function loadFavorites() {
           removeFromFavorites(this.dataset.url);
         }
       });
+
+      // Apply Filter if Search Term Exists
+      if (searchTerm && !site.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        listItem.style.display = 'none';
+      }
     });
   });
 }
@@ -229,8 +245,9 @@ function addToFavorites(site) {
       favorites.push(site);
       chrome.storage.local.set({ 'favorites': favorites }, function() {
         console.log('Added to favorites:', site.name);
-        loadFavorites();
-        loadSiteList();
+        var searchTerm = document.getElementById('searchInput').value;
+        loadFavorites(searchTerm);
+        loadSiteList(searchTerm);
       });
     }
   });
@@ -243,8 +260,9 @@ function removeFromFavorites(url) {
     favorites = favorites.filter(fav => fav.url !== url);
     chrome.storage.local.set({ 'favorites': favorites }, function() {
       console.log('Removed from favorites:', url);
-      loadFavorites();
-      loadSiteList();
+      var searchTerm = document.getElementById('searchInput').value;
+      loadFavorites(searchTerm);
+      loadSiteList(searchTerm);
     });
   });
 }

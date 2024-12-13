@@ -10,7 +10,7 @@ Download the folder with the extension's source code from this repository.
 Open Google Chrome and type chrome://extensions in the address bar.
 Enable the developer mode located in the upper right corner.
 Click on "Load unpacked" and select the folder with the extension's source code.
-The "DM Retailers" extension should appear in the list of installed extensions. Make sure it is enabled.
+The "Retailers" extension should appear in the list of installed extensions. Make sure it is enabled.
 Then import the attached .csv file and you can start using the extension.
 
 2. Managing a Website List

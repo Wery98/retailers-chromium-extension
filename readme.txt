@@ -1,4 +1,4 @@
-Chrome Extension - DM Retailers v1.3
+Chrome Extension - DM Retailers v2.0
 
 Description
 The "DM Retailers" Chrome extension allows you to create and manage a list of DM Retailers. You can import a website list from a CSV file and search for websites by name.
@@ -34,11 +34,8 @@ To search for a website, enter the name in the search bar at the top of the exte
 The list of websites will be filtered in real-time as you type, showing only the matching results.
 
 4. TODO:
-- Add favorite list
-- Make a list a little bit shorter
-- To add the functionality to avoid duplicated records during import (algorithm already added, but does not work as expected)
 - To add the funcionality of adding single pages just by putting the retailer ID, retailername, and stack (these are the factors that create the URL)
 
 ----------
-Last update: 07.06.2023
-Last retailers CSV export: 05.06.2023
+Last update: 13.12.2024
+For AUCTANE internal use

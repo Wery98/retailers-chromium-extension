@@ -1,25 +1,57 @@
 body {
-  width: 170px;
+  width: 300px; /* Adequate width for content */
   padding: 10px;
+  font-family: Arial, sans-serif;
 }
 
-h1 {
+h1, h2 {
   text-align: center;
+  font-size: 18px;
 }
 
 input[type="text"] {
   width: 100%;
   padding: 5px;
   margin-bottom: 10px;
+  box-sizing: border-box;
 }
 
 ul {
   list-style-type: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 20px 0;
 }
 
 li {
-  display: block;
+  display: flex;
+  align-items: center;
   margin-bottom: 5px;
 }
+
+li .stack {
+  width: 50px;
+  font-weight: bold;
+  text-align: right;
+  margin-right: 10px;
+}
+
+li .favorite-checkbox {
+  margin-right: 10px;
+}
+
+li a {
+  text-decoration: none;
+  color: #007bff;
+}
+
+li a:hover {
+  text-decoration: underline;
+}
+
+button {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 5px;
+  cursor: pointer;
+}
+

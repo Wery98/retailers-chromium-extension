@@ -1,23 +1,23 @@
 document.addEventListener('DOMContentLoaded', function() {
   loadSiteList();
-  
-
-document.getElementById('deleteButton').addEventListener('click', function() {
-  chrome.storage.local.remove('siteList', function() {
-    console.log('Deleted imported site list.');
-    loadSiteList();
+  loadFavorites();
+  document.getElementById('deleteButton').addEventListener('click', function() {
+    chrome.storage.local.remove(['siteList', 'favorites'], function() {
+      console.log('Deleted imported site list and favorites.');
+      loadSiteList();
+      loadFavorites();
+    });
   });
-});
+
 
   document.getElementById('searchInput').addEventListener('input', function() {
     filterSiteList(this.value);
+    filterFavorites(this.value);
   });
 
   document.getElementById('importButton').addEventListener('click', function() {
     document.getElementById('csvFileInput').click();
   });
-  
-  
 
   document.getElementById('csvFileInput').addEventListener('change', function() {
     var file = this.files[0];
@@ -26,52 +26,45 @@ document.getElementById('deleteButton').addEventListener('click', function() {
       reader.onloadend = function() {
         var csvData = reader.result;
         var siteList = parseCSV(csvData);
-        chrome.storage.local.set({ 'siteList': JSON.stringify(siteList) }, function() {
-          console.log('Imported site list successfully.');
-          loadSiteList();
+        mergeSiteList(siteList, function (mergedList) {
+          chrome.storage.local.set({ 'siteList': JSON.stringify(mergedList) }, function () {
+            console.log('Imported site list successfully.');
+            loadSiteList();
+          });
         });
       };
       reader.readAsText(file);
     }
   });
+  
+
 });
-
-
 
 chrome.runtime.onInstalled.addListener(function() {
   importCSVFile();
 });
 
+
 async function importCSVFile() {
-  const [fileHandle] = await window.showOpenFilePicker({ types: [{ description: 'CSV Files', accept: { 'text/csv': ['.csv'] } }] });
-  const file = await fileHandle.getFile();
-  const csvData = await file.text();
-  const siteList = parseCSV(csvData);
+  try {
+    const [fileHandle] = await window.showOpenFilePicker({ 
+      types: [{ description: 'CSV Files', accept: { 'text/csv': ['.csv'] } }],
+      multiple: false
+    });
+    const file = await fileHandle.getFile();
+    const csvData = await file.text();
+    const siteList = parseCSV(csvData);
 
-  mergeSiteList(siteList, function (mergedList) {
-    chrome.storage.local.get('siteList', function (data) {
-      var existingList = [];
-      if (data.siteList) {
-        existingList = JSON.parse(data.siteList);
-      }
-
-      var updatedList = existingList.filter(function (existingSite) {
-        return !mergedList.some(function (site) {
-          return site.name === existingSite.name;
-        });
-      });
-
-      var mergedAndUpdatedList = updatedList.concat(mergedList);
-
-      chrome.storage.local.set({ 'siteList': JSON.stringify(mergedAndUpdatedList) }, function () {
+    mergeSiteList(siteList, function (mergedList) {
+      chrome.storage.local.set({ 'siteList': JSON.stringify(mergedList) }, function () {
         console.log('Imported site list successfully.');
         loadSiteList();
       });
     });
-  });
+  } catch (error) {
+    console.error('Error importing CSV file:', error);
+  }
 }
-
-
 
 
 function parseCSV(csvData) {
@@ -83,7 +76,7 @@ function parseCSV(csvData) {
     if (line !== '') {
       var cells = line.split(',');
       if (cells.length >= 3) {
-		var stack = cells[0].trim();
+        var stack = cells[0].trim();
         var name = cells[1].trim();
         var url = cells[2].trim();
         siteList.push({ 'name': name, 'url': url, 'stack': stack });
@@ -94,28 +87,53 @@ function parseCSV(csvData) {
   return siteList;
 }
 
+function mergeSiteList(newSites, callback) {
+  chrome.storage.local.get('siteList', function (data) {
+    var existingSites = data.siteList ? JSON.parse(data.siteList) : [];
+    var mergedList = existingSites.concat(newSites);
+
+    var uniqueList = mergedList.filter(function (site, index, self) {
+      return index === self.findIndex(function (s) {
+        return s.name === site.name && s.url === site.url;
+      });
+    });
+
+    callback(uniqueList);
+  });
+}
+
 function loadSiteList() {
   chrome.storage.local.get('siteList', function(data) {
-    var siteList = [];
-    if (data.siteList) {
-      siteList = JSON.parse(data.siteList);
-      document.getElementById('deleteButton').style.display = 'block';
-    } else {
-      document.getElementById('deleteButton').style.display = 'none';
-    }
+    var siteList = data.siteList ? JSON.parse(data.siteList) : [];
 
     var siteListElement = document.getElementById('siteList');
     siteListElement.innerHTML = '';
 
     siteList.forEach(function(site) {
       var listItem = document.createElement('li');
-      var nameSpan = document.createElement('span');
-      var linkSpan = document.createElement('span');
 
-      nameSpan.textContent = site.stack;
+      var favoriteCheckbox = document.createElement('input');
+      favoriteCheckbox.type = 'checkbox';
+      favoriteCheckbox.className = 'favorite-checkbox';
+      favoriteCheckbox.dataset.url = site.url;
+      favoriteCheckbox.dataset.name = site.name;
+      chrome.storage.local.get('favorites', function(favData) {
+        var favorites = favData.favorites ? favData.favorites : [];
+        if (favorites.some(fav => fav.url === site.url)) {
+          favoriteCheckbox.checked = true;
+        }
+      });
+      favoriteCheckbox.addEventListener('change', toggleFavorite);
+
+      var stackSpan = document.createElement('span');
+      stackSpan.className = 'stack';
+      stackSpan.textContent = site.stack;
+
+      var linkSpan = document.createElement('span');
       linkSpan.innerHTML = '<a href="' + site.url + '" target="_blank">' + site.name + '</a>';
 
-      listItem.appendChild(nameSpan);
+      listItem.appendChild(favoriteCheckbox);
+      listItem.appendChild(stackSpan);
       listItem.appendChild(document.createTextNode(' '));
       listItem.appendChild(linkSpan);
       siteListElement.appendChild(listItem);
@@ -123,56 +141,86 @@ function loadSiteList() {
   });
 }
 
+function loadFavorites() {
+  chrome.storage.local.get('favorites', function(data) {
+    var favorites = data.favorites ? data.favorites : [];
 
+    var favoritesListElement = document.getElementById('favoritesList');
+    favoritesListElement.innerHTML = '';
 
+    favorites.forEach(function(site) {
+      var listItem = document.createElement('li');
+
+      var favoriteCheckbox = document.createElement('input');
+      favoriteCheckbox.type = 'checkbox';
+      favoriteCheckbox.className = 'favorite-checkbox';
+      favoriteCheckbox.dataset.url = site.url;
+      favoriteCheckbox.dataset.name = site.name;
+      favoriteCheckbox.checked = true;
+      favoriteCheckbox.addEventListener('change', toggleFavorite);
+
+      var stackSpan = document.createElement('span');
+      stackSpan.className = 'stack';
+      stackSpan.textContent = site.stack;
+
+      var linkSpan = document.createElement('span');
+      linkSpan.innerHTML = '<a href="' + site.url + '" target="_blank">' + site.name + '</a>';
+
+      listItem.appendChild(favoriteCheckbox);
+      listItem.appendChild(stackSpan);
+      listItem.appendChild(document.createTextNode(' '));
+      listItem.appendChild(linkSpan);
+      favoritesListElement.appendChild(listItem);
+    });
+  });
+}
+
+function toggleFavorite(event) {
+  var url = event.target.dataset.url;
+  var name = event.target.dataset.name;
+
+  chrome.storage.local.get(['favorites', 'siteList'], function(data) {
+    var favorites = data.favorites ? data.favorites : [];
+    var siteList = data.siteList ? JSON.parse(data.siteList) : [];
+    var site = siteList.find(s => s.url === url && s.name === name);
+
+    if (event.target.checked) {
+      if (site) {
+        favorites.push({ 'name': site.name, 'url': site.url, 'stack': site.stack });
+      }
+    } else {
+      favorites = favorites.filter(function(s) {
+        return s.url !== url;
+      });
+    }
+
+    chrome.storage.local.set({ 'favorites': favorites }, function() {
+      loadFavorites();
+      loadSiteList(); 
+    });
+  });
+}
 
 function filterSiteList(searchTerm) {
   var siteListItems = document.querySelectorAll('#siteList li');
   siteListItems.forEach(function(item) {
     var siteName = item.querySelector('a').textContent.toLowerCase();
     if (siteName.includes(searchTerm.toLowerCase())) {
-      item.style.display = 'block';
+      item.style.display = 'flex';
     } else {
       item.style.display = 'none';
     }
   });
 }
-document.getElementById('importButton').addEventListener('click', function() {
-  document.getElementById('csvFileInput').click();
-});
 
-document.getElementById('csvFileInput').addEventListener('change', function() {
-  var file = this.files[0];
-  if (file) {
-    var reader = new FileReader();
-    reader.onloadend = function() {
-      var csvData = reader.result;
-      var siteList = parseCSV(csvData);
-      chrome.storage.local.set({ 'siteList': JSON.stringify(siteList) }, function() {
-        console.log('Imported site list successfully.');
-        loadSiteList();
-      });
-    };
-    reader.readAsText(file);
-  }
-});
-function mergeSiteList(newSites, callback) {
-  chrome.storage.local.get('siteList', function (data) {
-    if (data.siteList) {
-      var existingSites = JSON.parse(data.siteList);
-      var mergedList = existingSites.concat(newSites);
-
-      // Usuń duplikaty linków na podstawie nazwy i URL-a
-      var uniqueList = mergedList.filter(function (site, index, self) {
-        var currentIndex = self.findIndex(function (s) {
-          return s.name === site.name && s.url === site.url;
-        });
-        return currentIndex === index;
-      });
-
-      callback(uniqueList);
+function filterFavorites(searchTerm) {
+  var favoritesListItems = document.querySelectorAll('#favoritesList li');
+  favoritesListItems.forEach(function(item) {
+    var siteName = item.querySelector('a').textContent.toLowerCase();
+    if (siteName.includes(searchTerm.toLowerCase())) {
+      item.style.display = 'flex';
     } else {
-      callback(newSites);
+      item.style.display = 'none';
     }
   });
 }

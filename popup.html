@@ -5,19 +5,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DM Retailers</title>
-  <script src="popup.js"></script>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
 </head>
 
 <body>
   <h1>DM Retailers</h1>
-  <link rel="stylesheet" href="popup.css">
-  <input type="text" id="searchInput" placeholder="Search websites">
+  <section id="favoritesSection">
+    <h2>Favorites</h2>
+    <ul id="favoritesList"></ul>
+  </section>
+  <input type="text" id="searchInput" placeholder="Search for a DM retailer..." autofocus>
 
   <ul id="siteList"></ul>
 
-  <input type="file" id="csvFileInput" style="display: none">
+  <input type="file" id="csvFileInput" accept=".csv" style="display: none">
   <button id="importButton">Import CSV File</button>
-  <button id="deleteButton">Delete Imported CSV File</button>
+  <button id="deleteButton">Remove retailers list</button>
 
 </body>
 

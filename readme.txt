@@ -1,7 +1,7 @@
 Chrome Extension - Retailers v2.0
 
 Description
-The "Retailers" Chrome extension allows you to create and manage a list of Retailers. You can import a website list from a CSV file and search for websites by name.
+The "Retailers" Chrome extension allows you to create and manage a list of Retailers. You can import a website list from a CSV file and search for retailers by name or ID.
 
 Instructions
 

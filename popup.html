@@ -10,28 +10,33 @@
 </head>
 
 <body>
-  <h1>DM Retailers</h1>
+  <div class="header-container">
+    <h1>DM Retailers</h1>
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="Search retailers"
+      aria-label="Search retailers"
+    />
+  </div>
 
-  <!-- Search Input -->
-  <input type="text" id="searchInput" placeholder="Search retailers" aria-label="Search retailers">
+  <div class="main-content">
+    <section id="favoritesSection">
+      <h2>Favorites</h2>
+      <ul id="favoritesList" tabindex="0"></ul>
+    </section>
 
-  <!-- Favorites Section -->
-  <section id="favoritesSection">
-    <h2>Favorites</h2>
-    <ul id="favoritesList"></ul>
-  </section>
+    <hr class="separator">
 
-  <!-- Separator Between Favorites and Regular Sites -->
-  <hr class="separator">
+    <section id="retailersSection">
+      <h2>All Retailers</h2>
+      <ul id="siteList" tabindex="0"></ul>
+    </section>
 
-  <!-- All Sites List -->
-  <ul id="siteList"></ul>
-
-  <!-- Import/Delete Buttons -->
-  <input type="file" id="csvFileInput" accept=".csv" style="display: none">
-  <button id="importButton">Import CSV File</button>
-  <button id="deleteButton">Delete Imported CSV File</button>
-
+    <input type="file" id="csvFileInput" accept=".csv" style="display: none">
+    <button id="importButton">Import CSV File</button>
+    <button id="deleteButton">Delete Imported CSV File</button>
+  </div>
 </body>
 
 </html>

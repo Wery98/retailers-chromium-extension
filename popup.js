@@ -4,6 +4,7 @@ let visibleListItems = [];
 document.addEventListener('DOMContentLoaded', function () {
   loadSiteList();
   loadFavorites();
+  resetVisibleItems(); // Ensure visibleListItems is initialized
 
   document.getElementById('searchInput').focus();
 
@@ -12,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function () {
       console.log('Deleted imported site list and favorites.');
       loadSiteList();
       loadFavorites();
+      resetVisibleItems(); // Reinitialize visibleListItems after deletion
     });
   });
 
@@ -19,18 +21,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const searchTerm = this.value.trim();
 
     if (!searchTerm) {
-      resetVisibleItems();
+      resetVisibleItems(); // Reset to show all items when input is cleared
     } else {
-      filterList(searchTerm);
+      filterList(searchTerm); // Filter items based on search term
     }
   });
 
   document.getElementById('searchInput').addEventListener('keydown', function (event) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
+      initializeVisibleItemsIfNeeded(); // Ensure visibleListItems is populated
       handleKeyPress(event);
     } else if (event.key === 'Enter') {
-      handleEnterKey();
+      handleEnterKey(); // Trigger action for the selected item
     }
   });
 
@@ -56,6 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
             chrome.storage.local.set({ siteList: JSON.stringify(mergedList) }, function () {
               console.log('Imported site list successfully.');
               loadSiteList();
+              resetVisibleItems(); // Reinitialize visibleListItems after import
             });
           });
         } catch (error) {
@@ -67,16 +71,19 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-function resetVisibleItems() {
-  visibleListItems = [];
-  selectedIndex = -1;
 
+
+function resetVisibleItems() {
   const allListItems = Array.from(document.querySelectorAll('li'));
+  visibleListItems = allListItems; // Populate with all list items
+  selectedIndex = -1; // Reset the selected index
+
   allListItems.forEach(item => {
-    item.style.display = 'flex';
+    item.style.display = 'flex'; 
     item.classList.remove('selected');
   });
 }
+
 
 function clearHighlighting() {
   const allListItems = Array.from(document.querySelectorAll('li'));
@@ -92,43 +99,63 @@ function filterList(searchTerm) {
     const siteName = item.querySelector('a').textContent.toLowerCase();
     if (siteName.includes(searchTerm.toLowerCase())) {
       item.style.display = 'flex';
-      visibleListItems.push(item);
+      visibleListItems.push(item); // Add matching items to visibleListItems
     } else {
       item.style.display = 'none';
     }
-    item.classList.remove('selected');
+    item.classList.remove('selected'); // Remove any previous selection
   });
 
+  // Highlight the first item if items are visible
   if (visibleListItems.length > 0) {
     selectedIndex = 0;
     visibleListItems[selectedIndex].classList.add('selected');
   }
 }
 
+
+
 function handleKeyPress(event) {
-  if (visibleListItems.length === 0) return;
+  const allListItems = Array.from(document.querySelectorAll('li:not([style*="display: none"])'));
+  
+  if (allListItems.length === 0) return; 
 
   const isDown = event.key === 'ArrowDown';
 
   if (selectedIndex >= 0) {
-    visibleListItems[selectedIndex].classList.remove('selected');
+    allListItems[selectedIndex].classList.remove('selected');
   }
 
-  selectedIndex = isDown
-    ? (selectedIndex + 1) % visibleListItems.length
-    : (selectedIndex - 1 + visibleListItems.length) % visibleListItems.length;
+  if (selectedIndex === -1) {
+    selectedIndex = 0;
+  } else {
+    selectedIndex = isDown
+      ? (selectedIndex + 1) % allListItems.length
+      : (selectedIndex - 1 + allListItems.length) % allListItems.length;
+  }
 
-  visibleListItems[selectedIndex].classList.add('selected');
-  visibleListItems[selectedIndex].scrollIntoView({ block: 'nearest' });
+  allListItems[selectedIndex].classList.add('selected');
+  allListItems[selectedIndex].scrollIntoView({ block: 'nearest' });
 }
 
 function handleEnterKey() {
-  if (selectedIndex >= 0 && visibleListItems[selectedIndex]) {
-    const link = visibleListItems[selectedIndex].querySelector('a');
-    if (link) {
-      console.log('Opening URL:', link.href);
-      link.click();
+  if (visibleListItems.length > 0 && selectedIndex >= 0) {
+    const selectedItem = visibleListItems[selectedIndex];
+    if (selectedItem) {
+      const link = selectedItem.querySelector('a');
+      if (link) {
+        console.log('Opening URL:', link.href);
+        link.click(); // Simulate link click
+      }
     }
+  }
+}
+
+
+
+function initializeVisibleItemsIfNeeded() {
+  if (visibleListItems.length === 0) {
+    visibleListItems = Array.from(document.querySelectorAll('li:not([style*="display: none"])'));
   }
 }
 

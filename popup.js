@@ -1,4 +1,4 @@
-let selectedIndex = -1; 
+let selectedIndex = -1;
 let visibleListItems = [];
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -17,24 +17,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   document.getElementById('searchInput').addEventListener('input', function () {
     const searchTerm = this.value.trim();
-  
+
     if (!searchTerm) {
       resetVisibleItems();
     } else {
-      filterList(searchTerm); 
+      filterList(searchTerm);
     }
   });
-  
 
   document.getElementById('searchInput').addEventListener('keydown', function (event) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault(); 
+      event.preventDefault();
       handleKeyPress(event);
     } else if (event.key === 'Enter') {
       handleEnterKey();
     }
   });
-
 
   document.getElementById('importButton').addEventListener('click', function () {
     document.getElementById('csvFileInput').click();
@@ -46,13 +44,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const reader = new FileReader();
       reader.onloadend = function () {
         const csvData = reader.result;
-        const siteList = parseCSV(csvData);
-        mergeSiteList(siteList, function (mergedList) {
-          chrome.storage.local.set({ siteList: JSON.stringify(mergedList) }, function () {
-            console.log('Imported site list successfully.');
-            loadSiteList();
+
+        try {
+          const siteList = parseCSV(csvData);
+          if (siteList.length === 0) {
+            console.warn('No valid data found in the CSV file.');
+            return;
+          }
+
+          mergeSiteList(siteList, function (mergedList) {
+            chrome.storage.local.set({ siteList: JSON.stringify(mergedList) }, function () {
+              console.log('Imported site list successfully.');
+              loadSiteList();
+            });
           });
-        });
+        } catch (error) {
+          console.error('Error parsing CSV:', error);
+        }
       };
       reader.readAsText(file);
     }
@@ -65,11 +73,10 @@ function resetVisibleItems() {
 
   const allListItems = Array.from(document.querySelectorAll('li'));
   allListItems.forEach(item => {
-    item.style.display = 'flex'; 
+    item.style.display = 'flex';
     item.classList.remove('selected');
   });
 }
-
 
 function clearHighlighting() {
   const allListItems = Array.from(document.querySelectorAll('li'));
@@ -85,7 +92,7 @@ function filterList(searchTerm) {
     const siteName = item.querySelector('a').textContent.toLowerCase();
     if (siteName.includes(searchTerm.toLowerCase())) {
       item.style.display = 'flex';
-      visibleListItems.push(item); 
+      visibleListItems.push(item);
     } else {
       item.style.display = 'none';
     }
@@ -120,12 +127,12 @@ function handleEnterKey() {
     const link = visibleListItems[selectedIndex].querySelector('a');
     if (link) {
       console.log('Opening URL:', link.href);
-      link.click(); 
+      link.click();
     }
   }
 }
 
-function loadSiteList() {
+function loadSiteList(callback) {
   chrome.storage.local.get(['siteList', 'favorites'], function (data) {
     const siteList = data.siteList ? JSON.parse(data.siteList) : [];
     const favorites = data.favorites ? data.favorites : [];
@@ -169,9 +176,42 @@ function loadSiteList() {
       checkbox.addEventListener('change', function () {
         if (this.checked) {
           addToFavorites({ name: this.dataset.name, url: this.dataset.url, stack: this.dataset.stack });
+        } else {
+          removeFromFavorites(this.dataset.url);
         }
       });
     });
+
+    if (callback) callback(); // Call the callback after reloading the list
+  });
+}
+
+
+function parseCSV(csvData) {
+  const lines = csvData.split('\n');
+  const siteList = [];
+
+  lines.forEach(line => {
+    const cells = line.split(',').map(cell => cell.trim());
+    if (cells.length >= 3) {
+      const [stack, name, url] = cells;
+      siteList.push({ stack, name, url });
+    }
+  });
+
+  return siteList;
+}
+
+function mergeSiteList(newSites, callback) {
+  chrome.storage.local.get('siteList', function (data) {
+    const existingSites = data.siteList ? JSON.parse(data.siteList) : [];
+    const mergedList = [...existingSites, ...newSites];
+
+    const uniqueList = mergedList.filter((site, index, self) =>
+      index === self.findIndex(s => s.name === site.name && s.url === site.url)
+    );
+
+    callback(uniqueList);
   });
 }
 
@@ -228,8 +268,13 @@ function addToFavorites(site) {
     if (!favorites.some(fav => fav.url === site.url)) {
       favorites.push(site);
       chrome.storage.local.set({ favorites: favorites }, function () {
+        const searchTerm = document.getElementById('searchInput').value.trim(); // Retain the search term
         loadFavorites();
-        loadSiteList();
+        loadSiteList(function () {
+          if (searchTerm) {
+            filterList(searchTerm); // Reapply the search filter
+          }
+        });
       });
     }
   });
@@ -240,8 +285,14 @@ function removeFromFavorites(url) {
     const favorites = data.favorites ? data.favorites : [];
     const updatedFavorites = favorites.filter(fav => fav.url !== url);
     chrome.storage.local.set({ favorites: updatedFavorites }, function () {
+      const searchTerm = document.getElementById('searchInput').value.trim(); // Retain the search term
       loadFavorites();
-      loadSiteList();
+      loadSiteList(function () {
+        if (searchTerm) {
+          filterList(searchTerm); // Reapply the search filter
+        }
+      });
     });
   });
 }
+

@@ -1,46 +1,56 @@
-document.addEventListener('DOMContentLoaded', function() {
-  var searchTerm = document.getElementById('searchInput').value;
-  loadSiteList(searchTerm);
-  loadFavorites(searchTerm);
+let selectedIndex = -1; 
+let visibleListItems = [];
 
-  // Focus the search input field automatically
+document.addEventListener('DOMContentLoaded', function () {
+  loadSiteList();
+  loadFavorites();
+
   document.getElementById('searchInput').focus();
 
-  // Delete Button Event
-  document.getElementById('deleteButton').addEventListener('click', function() {
-    chrome.storage.local.remove(['siteList', 'favorites'], function() {
+  document.getElementById('deleteButton').addEventListener('click', function () {
+    chrome.storage.local.remove(['siteList', 'favorites'], function () {
       console.log('Deleted imported site list and favorites.');
-      loadSiteList('');
-      loadFavorites('');
+      loadSiteList();
+      loadFavorites();
     });
   });
 
-  // Search Input Event
-  document.getElementById('searchInput').addEventListener('input', function() {
-    var currentTerm = this.value;
-    filterSiteList(currentTerm);
-    filterFavorites(currentTerm);
+  document.getElementById('searchInput').addEventListener('input', function () {
+    const searchTerm = this.value.trim();
+  
+    if (!searchTerm) {
+      resetVisibleItems();
+    } else {
+      filterList(searchTerm); 
+    }
+  });
+  
+
+  document.getElementById('searchInput').addEventListener('keydown', function (event) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault(); 
+      handleKeyPress(event);
+    } else if (event.key === 'Enter') {
+      handleEnterKey();
+    }
   });
 
-  // Import Button Event
-  document.getElementById('importButton').addEventListener('click', function() {
+
+  document.getElementById('importButton').addEventListener('click', function () {
     document.getElementById('csvFileInput').click();
   });
 
-  // CSV File Input Event
-  document.getElementById('csvFileInput').addEventListener('change', function() {
-    var file = this.files[0];
+  document.getElementById('csvFileInput').addEventListener('change', function () {
+    const file = this.files[0];
     if (file) {
-      var reader = new FileReader();
-      reader.onloadend = function() {
-        var csvData = reader.result;
-        var siteList = parseCSV(csvData);
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        const csvData = reader.result;
+        const siteList = parseCSV(csvData);
         mergeSiteList(siteList, function (mergedList) {
-          chrome.storage.local.set({ 'siteList': JSON.stringify(mergedList) }, function () {
+          chrome.storage.local.set({ siteList: JSON.stringify(mergedList) }, function () {
             console.log('Imported site list successfully.');
-            var searchTerm = document.getElementById('searchInput').value;
-            loadSiteList(searchTerm);
-            loadFavorites(searchTerm);
+            loadSiteList();
           });
         });
       };
@@ -49,112 +59,106 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Handle Extension Installation
-chrome.runtime.onInstalled.addListener(function() {
-  importCSVFile();
-});
+function resetVisibleItems() {
+  visibleListItems = [];
+  selectedIndex = -1;
 
-// Import CSV File on Installation
-async function importCSVFile() {
-  try {
-    const [fileHandle] = await window.showOpenFilePicker({ 
-      types: [{ description: 'CSV Files', accept: { 'text/csv': ['.csv'] } }],
-      multiple: false
-    });
-    const file = await fileHandle.getFile();
-    const csvData = await file.text();
-    const siteList = parseCSV(csvData);
-
-    mergeSiteList(siteList, function (mergedList) {
-      chrome.storage.local.set({ 'siteList': JSON.stringify(mergedList) }, function () {
-        console.log('Imported site list successfully.');
-        var searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
-        loadSiteList(searchTerm);
-        loadFavorites(searchTerm);
-      });
-    });
-  } catch (error) {
-    console.error('Error importing CSV file:', error);
-  }
-}
-
-// Parse CSV Data
-function parseCSV(csvData) {
-  var lines = csvData.split('\n');
-  var siteList = [];
-
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i].trim();
-    if (line !== '') {
-      var cells = line.split(',');
-      if (cells.length >= 3) {
-        var stack = cells[0].trim();
-        var name = cells[1].trim();
-        var url = cells[2].trim();
-        siteList.push({ 'name': name, 'url': url, 'stack': stack });
-      }
-    }
-  }
-
-  return siteList;
-}
-
-// Merge New Sites with Existing Sites
-function mergeSiteList(newSites, callback) {
-  chrome.storage.local.get('siteList', function (data) {
-    var existingSites = data.siteList ? JSON.parse(data.siteList) : [];
-    var mergedList = existingSites.concat(newSites);
-
-    // Remove duplicates based on name and URL (case-insensitive for name)
-    var uniqueList = mergedList.filter(function (site, index, self) {
-      return index === self.findIndex(function (s) {
-        return s.name.toLowerCase() === site.name.toLowerCase() && s.url === site.url;
-      });
-    });
-
-    callback(uniqueList);
+  const allListItems = Array.from(document.querySelectorAll('li'));
+  allListItems.forEach(item => {
+    item.style.display = 'flex'; 
+    item.classList.remove('selected');
   });
 }
 
-// Load Site List (Excluding Favorites)
-function loadSiteList(searchTerm = '') {
-  chrome.storage.local.get(['siteList', 'favorites'], function(data) {
-    var siteList = data.siteList ? JSON.parse(data.siteList) : [];
-    var favorites = data.favorites ? data.favorites : [];
 
-    // Exclude favorites from the main site list
-    var filteredSiteList = siteList.filter(site => !favorites.some(fav => fav.url === site.url));
+function clearHighlighting() {
+  const allListItems = Array.from(document.querySelectorAll('li'));
+  allListItems.forEach(item => item.classList.remove('selected'));
+}
 
-    var siteListElement = document.getElementById('siteList');
+function filterList(searchTerm) {
+  const allListItems = Array.from(document.querySelectorAll('li'));
+  visibleListItems = [];
+  selectedIndex = -1;
+
+  allListItems.forEach(item => {
+    const siteName = item.querySelector('a').textContent.toLowerCase();
+    if (siteName.includes(searchTerm.toLowerCase())) {
+      item.style.display = 'flex';
+      visibleListItems.push(item); 
+    } else {
+      item.style.display = 'none';
+    }
+    item.classList.remove('selected');
+  });
+
+  if (visibleListItems.length > 0) {
+    selectedIndex = 0;
+    visibleListItems[selectedIndex].classList.add('selected');
+  }
+}
+
+function handleKeyPress(event) {
+  if (visibleListItems.length === 0) return;
+
+  const isDown = event.key === 'ArrowDown';
+
+  if (selectedIndex >= 0) {
+    visibleListItems[selectedIndex].classList.remove('selected');
+  }
+
+  selectedIndex = isDown
+    ? (selectedIndex + 1) % visibleListItems.length
+    : (selectedIndex - 1 + visibleListItems.length) % visibleListItems.length;
+
+  visibleListItems[selectedIndex].classList.add('selected');
+  visibleListItems[selectedIndex].scrollIntoView({ block: 'nearest' });
+}
+
+function handleEnterKey() {
+  if (selectedIndex >= 0 && visibleListItems[selectedIndex]) {
+    const link = visibleListItems[selectedIndex].querySelector('a');
+    if (link) {
+      console.log('Opening URL:', link.href);
+      link.click(); 
+    }
+  }
+}
+
+function loadSiteList() {
+  chrome.storage.local.get(['siteList', 'favorites'], function (data) {
+    const siteList = data.siteList ? JSON.parse(data.siteList) : [];
+    const favorites = data.favorites ? data.favorites : [];
+
+    const filteredSiteList = siteList.filter(site => !favorites.some(fav => fav.url === site.url));
+
+    const siteListElement = document.getElementById('siteList');
     siteListElement.innerHTML = '';
 
-    filteredSiteList.forEach(function(site) {
-      var listItem = document.createElement('li');
+    filteredSiteList.forEach(function (site) {
+      const listItem = document.createElement('li');
 
-      // Star Checkbox
-      var starCheckboxDiv = document.createElement('div');
+      const starCheckboxDiv = document.createElement('div');
       starCheckboxDiv.className = 'star-checkbox';
 
-      var checkbox = document.createElement('input');
+      const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.id = `star-${site.url}`;
       checkbox.dataset.url = site.url;
       checkbox.dataset.name = site.name;
       checkbox.dataset.stack = site.stack;
 
-      var label = document.createElement('label');
+      const label = document.createElement('label');
       label.htmlFor = `star-${site.url}`;
 
       starCheckboxDiv.appendChild(checkbox);
       starCheckboxDiv.appendChild(label);
 
-      // Stack Display
-      var stackSpan = document.createElement('span');
+      const stackSpan = document.createElement('span');
       stackSpan.className = 'stack';
       stackSpan.textContent = site.stack;
 
-      // Site Name and Link
-      var linkSpan = document.createElement('span');
+      const linkSpan = document.createElement('span');
       linkSpan.innerHTML = `<a href="${site.url}" target="_blank">${site.name}</a>`;
 
       listItem.appendChild(starCheckboxDiv);
@@ -162,37 +166,28 @@ function loadSiteList(searchTerm = '') {
       listItem.appendChild(linkSpan);
       siteListElement.appendChild(listItem);
 
-      // Event Listener for Star Checkbox
-      checkbox.addEventListener('change', function() {
+      checkbox.addEventListener('change', function () {
         if (this.checked) {
-          addToFavorites({ 'name': this.dataset.name, 'url': this.dataset.url, 'stack': this.dataset.stack });
+          addToFavorites({ name: this.dataset.name, url: this.dataset.url, stack: this.dataset.stack });
         }
       });
-
-      // Apply Filter if Search Term Exists
-      if (searchTerm && !site.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-        listItem.style.display = 'none';
-      }
     });
   });
 }
 
-// Load Favorites
-function loadFavorites(searchTerm = '') {
-  chrome.storage.local.get('favorites', function(data) {
-    var favorites = data.favorites ? data.favorites : [];
-
-    var favoritesListElement = document.getElementById('favoritesList');
+function loadFavorites() {
+  chrome.storage.local.get('favorites', function (data) {
+    const favorites = data.favorites ? data.favorites : [];
+    const favoritesListElement = document.getElementById('favoritesList');
     favoritesListElement.innerHTML = '';
 
-    favorites.forEach(function(site) {
-      var listItem = document.createElement('li');
+    favorites.forEach(function (site) {
+      const listItem = document.createElement('li');
 
-      // Star Checkbox for Removing from Favorites
-      var starCheckboxDiv = document.createElement('div');
+      const starCheckboxDiv = document.createElement('div');
       starCheckboxDiv.className = 'star-checkbox';
 
-      var checkbox = document.createElement('input');
+      const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.id = `star-fav-${site.url}`;
       checkbox.checked = true;
@@ -200,19 +195,17 @@ function loadFavorites(searchTerm = '') {
       checkbox.dataset.name = site.name;
       checkbox.dataset.stack = site.stack;
 
-      var label = document.createElement('label');
+      const label = document.createElement('label');
       label.htmlFor = `star-fav-${site.url}`;
 
       starCheckboxDiv.appendChild(checkbox);
       starCheckboxDiv.appendChild(label);
 
-      // Stack Display for Favorites
-      var stackSpan = document.createElement('span');
+      const stackSpan = document.createElement('span');
       stackSpan.className = 'stack';
       stackSpan.textContent = site.stack;
 
-      // Site Name and Link
-      var linkSpan = document.createElement('span');
+      const linkSpan = document.createElement('span');
       linkSpan.innerHTML = `<a href="${site.url}" target="_blank">${site.name}</a>`;
 
       listItem.appendChild(starCheckboxDiv);
@@ -220,75 +213,35 @@ function loadFavorites(searchTerm = '') {
       listItem.appendChild(linkSpan);
       favoritesListElement.appendChild(listItem);
 
-      // Event Listener for Star Checkbox
-      checkbox.addEventListener('change', function() {
+      checkbox.addEventListener('change', function () {
         if (!this.checked) {
           removeFromFavorites(this.dataset.url);
         }
       });
-
-      // Apply Filter if Search Term Exists
-      if (searchTerm && !site.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-        listItem.style.display = 'none';
-      }
     });
   });
 }
 
-// Add to Favorites
 function addToFavorites(site) {
-  chrome.storage.local.get('favorites', function(data) {
-    var favorites = data.favorites ? data.favorites : [];
-
-    // Prevent duplicates
+  chrome.storage.local.get('favorites', function (data) {
+    const favorites = data.favorites ? data.favorites : [];
     if (!favorites.some(fav => fav.url === site.url)) {
       favorites.push(site);
-      chrome.storage.local.set({ 'favorites': favorites }, function() {
-        console.log('Added to favorites:', site.name);
-        var searchTerm = document.getElementById('searchInput').value;
-        loadFavorites(searchTerm);
-        loadSiteList(searchTerm);
+      chrome.storage.local.set({ favorites: favorites }, function () {
+        loadFavorites();
+        loadSiteList();
       });
     }
   });
 }
 
-// Remove from Favorites
 function removeFromFavorites(url) {
-  chrome.storage.local.get('favorites', function(data) {
-    var favorites = data.favorites ? data.favorites : [];
-    favorites = favorites.filter(fav => fav.url !== url);
-    chrome.storage.local.set({ 'favorites': favorites }, function() {
-      console.log('Removed from favorites:', url);
-      var searchTerm = document.getElementById('searchInput').value;
-      loadFavorites(searchTerm);
-      loadSiteList(searchTerm);
+  chrome.storage.local.get('favorites', function (data) {
+    const favorites = data.favorites ? data.favorites : [];
+    const updatedFavorites = favorites.filter(fav => fav.url !== url);
+    chrome.storage.local.set({ favorites: updatedFavorites }, function () {
+      loadFavorites();
+      loadSiteList();
     });
-  });
-}
-
-// Filter Site List Based on Search
-function filterSiteList(searchTerm) {
-  var siteListItems = document.querySelectorAll('#siteList li');
-  siteListItems.forEach(function(item) {
-    var siteName = item.querySelector('a').textContent.toLowerCase();
-    if (siteName.includes(searchTerm.toLowerCase())) {
-      item.style.display = 'flex';
-    } else {
-      item.style.display = 'none';
-    }
-  });
-}
-
-// Filter Favorites Based on Search
-function filterFavorites(searchTerm) {
-  var favoritesListItems = document.querySelectorAll('#favoritesList li');
-  favoritesListItems.forEach(function(item) {
-    var siteName = item.querySelector('a').textContent.toLowerCase();
-    if (siteName.includes(searchTerm.toLowerCase())) {
-      item.style.display = 'flex';
-    } else {
-      item.style.display = 'none';
-    }
   });
 }

@@ -28,6 +28,9 @@ Once you see there is a new retailer and you want to add it to the extension, yo
 To search for a website, enter the name in the search bar at the top of the extension interface.
 The list of websites will be filtered in real-time as you type, showing only the matching results.
 
+You can also use your up and down keyboard arrows, jumping between indexes of the list - the current retailer choice will be highlighted.
+Once you find a retailer you want to log into it, simply press enter, or left-mouse.
+
 ## 4. TODO:
 - To add the funcionality of adding single pages just by putting the retailer ID, retailername, and stack (these are the factors that create the URL)
 

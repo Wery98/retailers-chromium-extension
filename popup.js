@@ -8,12 +8,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   document.getElementById('searchInput').focus();
 
+  // ─── Delete only the siteList, not favorites ─────────────────────
   document.getElementById('deleteButton').addEventListener('click', function () {
-    chrome.storage.local.remove(['siteList', 'favorites'], function () {
-      console.log('Deleted imported site list and favorites.');
+    chrome.storage.local.remove(['siteList'], function () {
+      console.log('Deleted imported site list, but kept favorites.');
       loadSiteList();
-      loadFavorites();
       resetVisibleItems(); // Reinitialize visibleListItems after deletion
+      // no need to reload favorites since they didn’t change
     });
   });
 
@@ -38,36 +39,51 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('importButton').addEventListener('click', function () {
-    document.getElementById('csvFileInput').click();
+    // allow reimporting same file by clearing previous value
+    const input = document.getElementById('csvFileInput');
+    input.value = '';
+    input.click();
   });
 
-  document.getElementById('csvFileInput').addEventListener('change', function () {
-    const file = this.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = function () {
-        const csvData = reader.result;
+  // ─── Enhanced CSV import: preserve only still‑present favorites ────
+  document.getElementById('csvFileInput').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-        try {
-          const siteList = parseCSV(csvData);
-          if (siteList.length === 0) {
-            console.warn('No valid data found in the CSV file.');
-            return;
-          }
+    const reader = new FileReader();
+    reader.onloadend = function () {
+      const newSites = parseCSV(reader.result);
+      if (newSites.length === 0) {
+        console.warn('No valid data found in the CSV file.');
+        return;
+      }
 
-          mergeSiteList(siteList, function (mergedList) {
-            chrome.storage.local.set({ siteList: JSON.stringify(mergedList) }, function () {
-              console.log('Imported site list successfully.');
-              loadSiteList();
-              resetVisibleItems(); // Reinitialize visibleListItems after import
-            });
+      // 1️⃣ Grab existing favorites
+      chrome.storage.local.get(['favorites'], data => {
+        const oldFavs    = data.favorites || [];
+        const oldFavUrls = new Set(oldFavs.map(f => f.url));
+
+        // 2️⃣ Merge new CSV into siteList
+        mergeSiteList(newSites, mergedList => {
+
+          // 3️⃣ Re‑build favorites: only keep URLs still in mergedList
+          const newFavs = mergedList.filter(site => oldFavUrls.has(site.url));
+
+          // 4️⃣ Persist both lists at once
+          chrome.storage.local.set({
+            siteList: JSON.stringify(mergedList),
+            favorites: newFavs
+          }, () => {
+            console.log('Imported CSV and re‑applied favorites.');
+            loadSiteList();
+            resetVisibleItems();
+            loadFavorites();
           });
-        } catch (error) {
-          console.error('Error parsing CSV:', error);
-        }
-      };
-      reader.readAsText(file);
-    }
+        });
+      });
+    };
+
+    reader.readAsText(file);
   });
 });
 
@@ -112,23 +128,18 @@ function filterList(searchTerm) {
 
 function handleKeyPress(event) {
   const allListItems = Array.from(document.querySelectorAll('li:not([style*="display: none"])'));
-
   if (allListItems.length === 0) return;
 
   const isDown = event.key === 'ArrowDown';
-
   if (selectedIndex >= 0) {
     allListItems[selectedIndex].classList.remove('selected');
   }
-
-  if (selectedIndex === -1) {
-    selectedIndex = 0;
-  } else {
-    selectedIndex = isDown
-      ? (selectedIndex + 1) % allListItems.length
-      : (selectedIndex - 1 + allListItems.length) % allListItems.length;
-  }
-
+  selectedIndex = selectedIndex < 0
+    ? 0
+    : (isDown
+        ? (selectedIndex + 1) % allListItems.length
+        : (selectedIndex - 1 + allListItems.length) % allListItems.length
+      );
   allListItems[selectedIndex].classList.add('selected');
   allListItems[selectedIndex].scrollIntoView({ block: 'nearest' });
 }

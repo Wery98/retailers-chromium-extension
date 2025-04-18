@@ -71,19 +71,16 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-
-
 function resetVisibleItems() {
   const allListItems = Array.from(document.querySelectorAll('li'));
   visibleListItems = allListItems; // Populate with all list items
   selectedIndex = -1; // Reset the selected index
 
   allListItems.forEach(item => {
-    item.style.display = 'flex'; 
+    item.style.display = 'flex';
     item.classList.remove('selected');
   });
 }
-
 
 function clearHighlighting() {
   const allListItems = Array.from(document.querySelectorAll('li'));
@@ -113,12 +110,10 @@ function filterList(searchTerm) {
   }
 }
 
-
-
 function handleKeyPress(event) {
   const allListItems = Array.from(document.querySelectorAll('li:not([style*="display: none"])'));
-  
-  if (allListItems.length === 0) return; 
+
+  if (allListItems.length === 0) return;
 
   const isDown = event.key === 'ArrowDown';
 
@@ -150,8 +145,6 @@ function handleEnterKey() {
     }
   }
 }
-
-
 
 function initializeVisibleItemsIfNeeded() {
   if (visibleListItems.length === 0) {
@@ -213,7 +206,6 @@ function loadSiteList(callback) {
   });
 }
 
-
 function parseCSV(csvData) {
   const lines = csvData.split('\n');
   const siteList = [];
@@ -248,7 +240,7 @@ function loadFavorites() {
     const favoritesListElement = document.getElementById('favoritesList');
     favoritesListElement.innerHTML = '';
 
-    favorites.forEach(function (site) {
+    favorites.forEach(function (site, idx) {
       const listItem = document.createElement('li');
 
       const starCheckboxDiv = document.createElement('div');
@@ -275,9 +267,30 @@ function loadFavorites() {
       const linkSpan = document.createElement('span');
       linkSpan.innerHTML = `<a href="${site.url}" target="_blank">${site.name}</a>`;
 
+      // ── Reorder controls ───────────────────────────────────────
+      const reorderDiv = document.createElement('div');
+      reorderDiv.className = 'reorder';
+
+      // ▲ Up
+      const upBtn = document.createElement('button');
+      upBtn.textContent = '▲';
+      upBtn.disabled = (idx === 0);
+      upBtn.addEventListener('click', () => moveFavorite(site.url, -1));
+
+      // ▼ Down
+      const downBtn = document.createElement('button');
+      downBtn.textContent = '▼';
+      downBtn.disabled = (idx === favorites.length - 1);
+      downBtn.addEventListener('click', () => moveFavorite(site.url, +1));
+
+      reorderDiv.appendChild(upBtn);
+      reorderDiv.appendChild(downBtn);
+      // ──────────────────────────────────────────────────────────
+
       listItem.appendChild(starCheckboxDiv);
       listItem.appendChild(stackSpan);
       listItem.appendChild(linkSpan);
+      listItem.appendChild(reorderDiv);
       favoritesListElement.appendChild(listItem);
 
       checkbox.addEventListener('change', function () {
@@ -295,11 +308,11 @@ function addToFavorites(site) {
     if (!favorites.some(fav => fav.url === site.url)) {
       favorites.push(site);
       chrome.storage.local.set({ favorites: favorites }, function () {
-        const searchTerm = document.getElementById('searchInput').value.trim(); // Retain the search term
+        const searchTerm = document.getElementById('searchInput').value.trim();
         loadFavorites();
         loadSiteList(function () {
           if (searchTerm) {
-            filterList(searchTerm); // Reapply the search filter
+            filterList(searchTerm);
           }
         });
       });
@@ -312,14 +325,39 @@ function removeFromFavorites(url) {
     const favorites = data.favorites ? data.favorites : [];
     const updatedFavorites = favorites.filter(fav => fav.url !== url);
     chrome.storage.local.set({ favorites: updatedFavorites }, function () {
-      const searchTerm = document.getElementById('searchInput').value.trim(); // Retain the search term
+      const searchTerm = document.getElementById('searchInput').value.trim();
       loadFavorites();
       loadSiteList(function () {
         if (searchTerm) {
-          filterList(searchTerm); // Reapply the search filter
+          filterList(searchTerm);
         }
       });
     });
   });
 }
 
+/**
+ * Swap a favorite up or down by one position,
+ * persist to chrome.storage, then re-render.
+ *
+ * @param {string} url       the unique key for the favorite
+ * @param {number} direction -1 to move up, +1 to move down
+ */
+function moveFavorite(url, direction) {
+  chrome.storage.local.get('favorites', function (data) {
+    const favorites = data.favorites ? data.favorites : [];
+    const idx = favorites.findIndex(fav => fav.url === url);
+    if (idx < 0) return;
+
+    const newIndex = idx + direction;
+    if (newIndex < 0 || newIndex >= favorites.length) return;
+
+    // Swap in‑place
+    [favorites[idx], favorites[newIndex]] = [favorites[newIndex], favorites[idx]];
+
+    // Save & re-render
+    chrome.storage.local.set({ favorites: favorites }, function () {
+      loadFavorites();
+    });
+  });
+}

@@ -154,6 +154,29 @@ input:focus {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
 }
 
+
+li .reorder {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+li .reorder button {
+  background: none;
+  border: none;
+  color: #d4d4d4;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+li .reorder button:hover {
+  background-color: rgba(0,0,0,0.1);
+}
+
+
 .main-content {
   flex: 1; 
   overflow-y: auto; 
